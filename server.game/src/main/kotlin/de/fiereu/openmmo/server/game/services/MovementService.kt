@@ -1,4 +1,4 @@
-package de.fiereu.openmmo.server.game.services
+﻿package de.fiereu.openmmo.server.game.services
 
 import de.fiereu.network.PacketEvent
 import de.fiereu.network.SessionContext
@@ -189,6 +189,8 @@ constructor(
         gbaMovePacket(charId, currentMap, toX, toY, msg.direction),
     )
 
+    characterStore.stepRepel(charId)
+
     // Story coordinate events take precedence over random encounters on the same step.
     if (!mapScriptService.onStep(ctx, state, currentMap, toX, toY)) {
       encounterService.onStep(ctx, charId, currentMap, toX, toY)
@@ -302,3 +304,4 @@ constructor(
     log.info { "Player $charId edge-transitioned to bank=$targetBank map=$targetMap" }
   }
 }
+

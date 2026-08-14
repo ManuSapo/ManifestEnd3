@@ -1,4 +1,4 @@
-package de.fiereu.openmmo.server.game.services
+﻿package de.fiereu.openmmo.server.game.services
 
 import de.fiereu.network.SessionContext
 import de.fiereu.openmmo.common.enums.EncounterMethod
@@ -32,6 +32,8 @@ constructor(
   /** Called after a completed step. Starts a wild battle if the tile and roll call for one. */
   fun onStep(session: SessionContext, charId: Long, map: MapDef, x: Int, y: Int) {
     if (battleService.inBattle(charId)) return
+    val repelActive = (characterStore.getCharacter(charId)?.info?.repelLeft ?: 0) > 0
+    if (repelActive) return
     val tile = map.tileAt(x, y) ?: return
     if (!isLandEncounterTile(tile.behavior)) return
     // TODO: Add water and fishing wild encounters
@@ -72,3 +74,4 @@ constructor(
     return table.slots.lastOrNull()
   }
 }
+

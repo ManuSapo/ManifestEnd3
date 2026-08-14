@@ -1,4 +1,4 @@
-package de.fiereu.network
+﻿package de.fiereu.network
 
 import de.fiereu.bytecodec.Codec
 import de.fiereu.network.internal.OutgoingPacket
@@ -51,7 +51,9 @@ abstract class ProtocolHandler(
     }
     try {
       if (msg.readableBytes() < 1) throw EmptyFrameException()
-      val opcode = (msg.readByte().toInt() and 0xFF).toUByte()
+val opcode = (msg.readByte().toInt() and 0xFF).toUByte()
+      val debugHex = io.netty.buffer.ByteBufUtil.hexDump(msg)
+      println("[DEBUG PACKET] opcode=0x${opcode.toString(16)} hex=$debugHex")
       val registration = protocol.incomingRegistration(side, opcode)
       if (registration == null) {
         log.error { "No incoming codec for opcode 0x${opcode.toString(16)} on $side" }
@@ -130,3 +132,4 @@ abstract class ProtocolHandler(
     (codec as Codec<Any>).write(NettyWriteBuffer(buf), value)
   }
 }
+

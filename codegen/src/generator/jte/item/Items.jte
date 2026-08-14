@@ -13,5 +13,5 @@ object Items {
 ${RenderUtil.INSTANCE.declaration(item)}
 @endfor
 
-  private fun item(name: String, price: Int) = ItemDef(name, price)
+  private fun item(name: String, price: Int, fieldUse: String, useClass: String, kindIndex: Int, amount: Int, holdEffect: Int) = ItemDef(name, price, fieldUse, useClass, kindIndex, amount, holdEffect)
 }

@@ -1,8 +1,10 @@
-package de.fiereu.openmmo.server.game.services
+﻿package de.fiereu.openmmo.server.game.services
 
 import de.fiereu.network.PacketEvent
 import de.fiereu.network.SessionContext
+import de.fiereu.openmmo.items.ItemRegistry
 import de.fiereu.openmmo.net.game.packets.DialogChoicePacket
+import de.fiereu.openmmo.net.game.packets.DialogOptionPacket
 import de.fiereu.openmmo.net.game.packets.DialogStatePacket
 import de.fiereu.openmmo.net.game.packets.dialog.DialogActionPacket
 import de.fiereu.openmmo.net.game.packets.dialog.DialogActionResponsePacket
@@ -11,6 +13,7 @@ import de.fiereu.openmmo.server.game.session.PENDING_DIALOG
 import de.fiereu.openmmo.server.game.session.PENDING_DIALOG_RESPONSE
 import de.fiereu.openmmo.server.game.session.PLAYER_STATE
 import de.fiereu.openmmo.server.game.session.PlayerState
+import de.fiereu.openmmo.server.game.storage.CharacterStore
 import io.github.oshai.kotlinlogging.KotlinLogging
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,7 +39,11 @@ data class DialogPresentation(
 )
 
 @Singleton
-class DialogService @Inject constructor() {
+class DialogService @Inject constructor(
+    private val characterStore: CharacterStore,
+    private val items: ItemRegistry,
+    private val storyPlayerService: StoryPlayerService,
+) {
 
   /** Emerald starter picker ROM ids. */
   suspend fun chooseHoennStarter(session: SessionContext, state: PlayerState): Int {
@@ -206,6 +213,59 @@ class DialogService @Inject constructor() {
     }
   }
 
+  suspend fun onDialogOption(event: PacketEvent<DialogOptionPacket>) {
+    val session = event.session
+    val packet = event.packet
+    val itemId = packet.unk1 and 0xFFFF
+    val slot = ((packet.unk1 ushr 16) and 0xFFFF) - 1
+    if (slot !in 0..5) {
+      log.warn { "Invalid slot=$slot for itemId=$itemId" }
+      return
+    }
+    val state = session.attributes[PLAYER_STATE] ?: return
+    val charId = state.characterId ?: return
+    val item = items.get(itemId)
+    if (item == null) {
+      log.warn { "char=$charId used unknown itemId=$itemId" }
+      return
+    }
+
+        val targetDexId = characterStore.getCharacter(charId)?.pokemon?.getOrNull(slot)?.dexId ?: -1
+    log.info { "Dialog option received: $packet, item=$item, slot=$slot, targetDexId=$targetDexId" }
+
+    val advance = session.attributes.remove(PENDING_DIALOG)
+    if (advance != null) {
+      advance.complete(Unit)
+      return
+    }
+
+    var used = false
+    when (item.fieldUse) {
+      "medicine" -> {
+        when (item.kindIndex) {
+          0, 1, 2, 3, 4 -> used = storyPlayerService.healPokemon(session, state, slot, item.amount)
+          else -> used = storyPlayerService.healStatusByKind(session, state, slot, item.kindIndex)
+        }
+      }
+      "repel" -> used = storyPlayerService.applyRepel(session, state, item.amount, itemId)
+      else -> log.warn { "No field use handler for ${item.name} (${item.fieldUse})" }
+    }
+
+    if (used) {
+      if (characterStore.addItem(charId, itemId, -1)) {
+        val after = characterStore.getCharacter(charId) ?: return
+        session.send(itemStackUpdatePacket(itemId, after.items[itemId] ?: 0))
+        log.info { "char=$charId used item $itemId, remaining=${after.items[itemId] ?: 0}" }
+      }
+    }
+
+    if (state.inDialog) {
+      session.send(DialogStatePacket(false))
+      state.inDialog = false
+      state.dialogNpcEntityId = 0
+    }
+  }
+
   private suspend fun showChoiceAndWait(
       session: SessionContext,
       state: PlayerState,
@@ -249,3 +309,11 @@ class DialogService @Inject constructor() {
     const val HOENN_STARTER_CONFIRM_TEXT = 0x105E8C90
   }
 }
+
+
+
+
+
+
+
+
