@@ -1,4 +1,4 @@
-package de.fiereu.openmmo.server.game.storage
+﻿package de.fiereu.openmmo.server.game.storage
 
 import de.fiereu.openmmo.common.CharacterInfo
 import de.fiereu.openmmo.common.DynamicWarp
@@ -192,6 +192,31 @@ constructor(
 
   fun updateCharacter(info: CharacterInfo) {
     mutate(info.id) { it.copy(info = info) }
+  }
+
+  /** Sets the active repel count and item. */
+  suspend fun setRepel(characterId: Long, left: Short, itemId: Short): Boolean =
+      mutateDurably(
+          characterId,
+          apply = { it.copy(info = it.info.copy(repelLeft = left, repelItemId = itemId)) },
+          rollback = { it },
+      )
+
+  /** Decrements the active repel count by one step. */
+  fun stepRepel(characterId: Long) {
+    mutate(characterId) { stored ->
+      if (stored.info.repelLeft <= 0) null
+      else {
+        val left = (stored.info.repelLeft - 1).toShort()
+        stored.copy(
+            info =
+                stored.info.copy(
+                    repelLeft = left,
+                    repelItemId = if (left == 0.toShort()) 0 else stored.info.repelItemId,
+                ),
+        )
+      }
+    }
   }
 
   fun updatePosition(
@@ -442,3 +467,4 @@ constructor(
     charactersByUser.remove(stored.info.userId)
   }
 }
+

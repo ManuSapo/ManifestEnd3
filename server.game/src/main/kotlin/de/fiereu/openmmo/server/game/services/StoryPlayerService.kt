@@ -132,6 +132,15 @@ constructor(
         PokemonMove(id.toShort(), (moves.get(id)?.pp ?: 0).toByte())
       } + List((MAX_MOVES - moveIds.size).coerceAtLeast(0)) { PokemonMove(0, 0) }
 
+  suspend fun applyRepel(session: SessionContext, state: PlayerState, amount: Int, itemId: Int): Boolean {
+    val charId = state.characterId ?: return false
+    return characters.setRepel(charId, amount.toShort(), itemId.toShort())
+  }
+
+  suspend fun healStatusByKind(session: SessionContext, state: PlayerState, slot: Int, kindIndex: Int): Boolean {
+    // Status persistence is not implemented yet. This is a placeholder for future decomp-driven cures.
+    return false
+  }
   private companion object {
     const val MAX_MOVES = 4
   }
@@ -170,5 +179,6 @@ fun itemStackUpdatePacket(itemId: Int, quantity: Int) =
     )
 
 private const val ITEM_ENTITY_TAG = 0x5000L
+
 
 

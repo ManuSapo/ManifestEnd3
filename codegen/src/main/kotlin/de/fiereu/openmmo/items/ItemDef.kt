@@ -1,6 +1,13 @@
-package de.fiereu.openmmo.items
+﻿package de.fiereu.openmmo.items
 
-/** Not a data class on purpose. The catalogue instance is the identity, so equality is by it. */
-class ItemDef(val name: String, val price: Int) {
+class ItemDef(
+    val name: String,
+    val price: Int,
+    val fieldUse: String,
+    val useClass: String,
+    val kindIndex: Int,
+    val amount: Int,
+    val holdEffect: Int,
+) {
   override fun toString(): String = name
 }

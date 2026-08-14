@@ -1,10 +1,11 @@
-package de.fiereu.openmmo.codegen.item
+﻿package de.fiereu.openmmo.codegen.item
 
 import java.io.File
 import java.text.Normalizer
 import java.util.Locale
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -28,10 +29,19 @@ class ItemDataParser(private val dataDir: File) {
 
     val names =
         json.parseToJsonElement(namesFile.readText()).jsonArray.map { it.jsonPrimitive.content }
-    val prices =
-        json.parseToJsonElement(itemsFile.readText()).jsonArray.associate { entry ->
+
+    val rawItems =
+        json.parseToJsonElement(itemsFile.readText()).jsonArray.map { entry ->
           val obj = entry.jsonObject
-          obj.getValue("index").jsonPrimitive.int to obj.getValue("price").jsonPrimitive.int
+          RawItem(
+              index = obj.getValue("index").jsonPrimitive.int,
+              price = obj.getValue("price").jsonPrimitive.int,
+              fieldUse = obj["field_use"]?.jsonPrimitive?.content ?: "",
+              useClass = obj["use_class"]?.jsonPrimitive?.content ?: "0",
+              kindIndex = obj["kind_index"]?.jsonPrimitive?.intOrNull ?: 0,
+              amount = obj["amount"]?.jsonPrimitive?.intOrNull ?: 0,
+              holdEffect = obj["hold_effect"]?.jsonPrimitive?.intOrNull ?: 0,
+          )
         }
 
     return names
@@ -39,25 +49,30 @@ class ItemDataParser(private val dataDir: File) {
         .filterNot { (index, name) -> index == 0 || name.trim() in PLACEHOLDER_NAMES }
         .mapNotNull { (index, name) ->
           val identifier = identifierOf(name)
-          if (identifier.isEmpty()) null else Triple(identifier, name, index)
+          if (identifier.isEmpty()) return@mapNotNull null
+          val raw = rawItems.find { it.index == index } ?: return@mapNotNull null
+          ItemEntry(identifier, name, index, raw)
         }
-        .groupBy { it.first }
+        .groupBy { it.identifier }
         .map { (identifier, group) ->
-          // Two different names normalising the same would silently become one item.
-          val grouped = group.map { it.second }.distinct()
-          check(grouped.size == 1) { "Items $grouped all derive the identifier $identifier" }
-          val lowest = group.minBy { it.third }
+          val groupedNames = group.map { it.name }.distinct()
+          check(groupedNames.size == 1) { "Items $groupedNames all derive the identifier $identifier" }
+          val lowest = group.minBy { it.index }
           ParsedItem(
               identifier = identifier,
-              name = lowest.second,
-              price = prices[lowest.third] ?: 0,
-              ids = group.map { ITEM_REGION_BLOCK + it.third }.sorted(),
+              name = lowest.name,
+              price = lowest.raw.price,
+              fieldUse = lowest.raw.fieldUse,
+              useClass = lowest.raw.useClass,
+              kindIndex = lowest.raw.kindIndex,
+              amount = lowest.raw.amount,
+              holdEffect = lowest.raw.holdEffect,
+              ids = group.map { ITEM_REGION_BLOCK + it.index }.sorted(),
           )
         }
         .sortedBy { it.ids.first() }
   }
 
-  /** Turns a display name into a Kotlin constant name: "Poké Ball" becomes POKE_BALL. */
   private fun identifierOf(name: String): String =
       Normalizer.normalize(name, Normalizer.Form.NFD)
           .replace(Regex("\\p{Mn}+"), "")
@@ -65,4 +80,21 @@ class ItemDataParser(private val dataDir: File) {
           .replace(Regex("[^A-Z0-9]+"), "_")
           .trim('_')
           .let { if (it.firstOrNull()?.isDigit() == true) "_$it" else it }
+
+  private data class RawItem(
+      val index: Int,
+      val price: Int,
+      val fieldUse: String,
+      val useClass: String,
+      val kindIndex: Int,
+      val amount: Int,
+      val holdEffect: Int,
+  )
+
+  private data class ItemEntry(
+      val identifier: String,
+      val name: String,
+      val index: Int,
+      val raw: RawItem,
+  )
 }

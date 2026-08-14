@@ -212,14 +212,26 @@ class DialogService @Inject constructor(
       state.dialogNpcEntityId = 0
     }
   }
+
   suspend fun onDialogOption(event: PacketEvent<DialogOptionPacket>) {
     val session = event.session
     val packet = event.packet
     val itemId = packet.unk1 and 0xFFFF
-    val slot = packet.unk5.toInt()
+    val slot = ((packet.unk1 ushr 16) and 0xFFFF) - 1
+    if (slot !in 0..5) {
+      log.warn { "Invalid slot=$slot for itemId=$itemId" }
+      return
+    }
     val state = session.attributes[PLAYER_STATE] ?: return
     val charId = state.characterId ?: return
-    log.info { "Dialog option received: $packet, itemId=$itemId, slot=$slot" }
+    val item = items.get(itemId)
+    if (item == null) {
+      log.warn { "char=$charId used unknown itemId=$itemId" }
+      return
+    }
+
+        val targetDexId = characterStore.getCharacter(charId)?.pokemon?.getOrNull(slot)?.dexId ?: -1
+    log.info { "Dialog option received: $packet, item=$item, slot=$slot, targetDexId=$targetDexId" }
 
     val advance = session.attributes.remove(PENDING_DIALOG)
     if (advance != null) {
@@ -227,16 +239,17 @@ class DialogService @Inject constructor(
       return
     }
 
-    val stored = characterStore.getCharacter(charId) ?: return
-    val held = stored.items[itemId] ?: 0
-    if (held <= 0) return
-
-    val healAmount = when (itemId) {
-      5017 -> 20  // Potion
-      // Adicione outros itens de cura aqui
-      else -> null
+    var used = false
+    when (item.fieldUse) {
+      "medicine" -> {
+        when (item.kindIndex) {
+          0, 1, 2, 3, 4 -> used = storyPlayerService.healPokemon(session, state, slot, item.amount)
+          else -> used = storyPlayerService.healStatusByKind(session, state, slot, item.kindIndex)
+        }
+      }
+      "repel" -> used = storyPlayerService.applyRepel(session, state, item.amount, itemId)
+      else -> log.warn { "No field use handler for ${item.name} (${item.fieldUse})" }
     }
-    val used = healAmount != null && storyPlayerService.healPokemon(session, state, slot, healAmount)
 
     if (used) {
       if (characterStore.addItem(charId, itemId, -1)) {
@@ -296,5 +309,11 @@ class DialogService @Inject constructor(
     const val HOENN_STARTER_CONFIRM_TEXT = 0x105E8C90
   }
 }
+
+
+
+
+
+
 
 
