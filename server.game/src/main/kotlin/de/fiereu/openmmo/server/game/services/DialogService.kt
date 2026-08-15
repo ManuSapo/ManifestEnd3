@@ -217,13 +217,25 @@ class DialogService @Inject constructor(
     val session = event.session
     val packet = event.packet
     val itemId = packet.unk1 and 0xFFFF
-    val slot = ((packet.unk1 ushr 16) and 0xFFFF) - 1
+    val slotRaw = (packet.unk1 ushr 16) and 0xFFFF
+    val slot = if (slotRaw >= 0xC000) slotRaw - 0xC000 else slotRaw
+    val quantity = (packet.unk3 ushr 16) and 0xFFFF
+    if (quantity <= 0) {
+      log.warn { "Invalid quantity=$quantity for itemId=$itemId" }
+      return
+    }
     if (slot !in 0..5) {
       log.warn { "Invalid slot=$slot for itemId=$itemId" }
       return
     }
     val state = session.attributes[PLAYER_STATE] ?: return
     val charId = state.characterId ?: return
+        val storedBeforeUse = characterStore.getCharacter(charId) ?: return
+    val availableBefore = storedBeforeUse.items[itemId] ?: 0
+    if (quantity > availableBefore) {
+      log.warn { "char=$charId attempted to use $quantity of $itemId but has $availableBefore" }
+      return
+    }
     val item = items.get(itemId)
     if (item == null) {
       log.warn { "char=$charId used unknown itemId=$itemId" }
@@ -243,7 +255,7 @@ class DialogService @Inject constructor(
     when (item.fieldUse) {
       "medicine" -> {
         when (item.kindIndex) {
-          0, 1, 2, 3, 4 -> used = storyPlayerService.healPokemon(session, state, slot, item.amount)
+          0, 1, 2, 3, 4 -> used = storyPlayerService.healPokemon(session, state, slot, item.amount * quantity)
           else -> used = storyPlayerService.healStatusByKind(session, state, slot, item.kindIndex)
         }
       }
@@ -252,10 +264,10 @@ class DialogService @Inject constructor(
     }
 
     if (used) {
-      if (characterStore.addItem(charId, itemId, -1)) {
+      if (characterStore.addItem(charId, itemId, -quantity)) {
         val after = characterStore.getCharacter(charId) ?: return
         session.send(itemStackUpdatePacket(itemId, after.items[itemId] ?: 0))
-        log.info { "char=$charId used item $itemId, remaining=${after.items[itemId] ?: 0}" }
+        log.info { "char=$charId used $quantity of item $itemId, remaining=${after.items[itemId] ?: 0}" }
       }
     }
 
@@ -309,6 +321,11 @@ class DialogService @Inject constructor(
     const val HOENN_STARTER_CONFIRM_TEXT = 0x105E8C90
   }
 }
+
+
+
+
+
 
 
 
