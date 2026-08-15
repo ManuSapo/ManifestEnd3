@@ -78,7 +78,7 @@ constructor(
     val pokemon = stored.pokemon[slot]
     val definition = species.get(pokemon.dexId) ?: return false
     val maxHp = StatCalculator.computeAll(definition, pokemon).hp
-    val updated = pokemon.copy(hp = (pokemon.hp + amount).coerceAtMost(maxHp).toShort())
+    val updated = pokemon.copy(hp = if (amount >= maxHp) maxHp.toShort() else (pokemon.hp + amount).coerceAtMost(maxHp).toShort())
     characters.updatePokemon(characterId, updated)
     session.send(
         PokemonContainerPacket(
@@ -179,6 +179,7 @@ fun itemStackUpdatePacket(itemId: Int, quantity: Int) =
     )
 
 private const val ITEM_ENTITY_TAG = 0x5000L
+
 
 
 

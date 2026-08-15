@@ -47,3 +47,9 @@ bin/
 .env.*
 !.env.example
 docker-compose.override.yml
+
+# Ferramentas e artefatos de análise
+cfr.jar
+classes_interesse.txt
+client_decompiled/
+
