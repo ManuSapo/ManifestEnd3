@@ -90,12 +90,7 @@ constructor(
         { CHARACTERS.ID.eq(it) },
         { _, info -> info.toRecord() },
     )
-    tx.writeDelta(
-        POKEMON,
-        rowDelta(previous.monstersById(), current.monstersById()),
-        { POKEMON.ID.eq(it) },
-        { _, monster -> monster.toRecord() },
-    )
+    writePokemonChanges(tx, previous, current)
     tx.writeDelta(
         CHARACTER_ITEMS,
         rowDelta(previous?.items.orEmpty(), current.items),
@@ -122,7 +117,25 @@ constructor(
     )
   }
 
-  private fun StoredCharacter?.monstersById(): Map<Long, Pokemon> =
+
+  private fun writePokemonChanges(tx: DSLContext, previous: StoredCharacter?, current: StoredCharacter) {
+    val before = previous.monstersById()
+    val after = current.monstersById()
+
+    // Remove os que não existem mais.
+    for (id in before.keys - after.keys) {
+      tx.deleteFrom(POKEMON).where(POKEMON.ID.eq(id)).execute()
+    }
+
+    // Insere novos e atualiza alterados.
+    for ((id, monster) in after) {
+      val old = before[id]
+      when {
+        old == null -> tx.insertInto(POKEMON).set(monster.toRecord()).execute()
+        old != monster -> tx.update(POKEMON).set(monster.toRecord()).where(POKEMON.ID.eq(id)).execute()
+      }
+    }
+  }  private fun StoredCharacter?.monstersById(): Map<Long, Pokemon> =
       this?.let { (it.pokemon + it.pcStorage).associateBy { monster -> monster.id } }.orEmpty()
 
   private fun insert(tx: DSLContext, stored: StoredCharacter) {
@@ -240,6 +253,8 @@ constructor(
           dynamicWarpX = dynamicWarp?.x,
           dynamicWarpY = dynamicWarp?.y,
           dynamicWarpFacing = dynamicWarp?.facing?.ordinal?.toShort(),
+          followerPokemonId = followerPokemonId,
+          followerSlot = followerSlot,
       )
 
   private fun CharactersRecord.toInfo(): CharacterInfo =
@@ -271,6 +286,8 @@ constructor(
           lureLeft = lureLeft,
           lureItemId = lureItemId,
           dynamicWarp = toDynamicWarp(),
+          followerPokemonId = followerPokemonId,
+          followerSlot = followerSlot,
       )
 
   private fun CharactersRecord.toDynamicWarp(): DynamicWarp? {
@@ -400,3 +417,4 @@ constructor(
         it.spd = (ivSpd ?: 0).toInt()
       }
 }
+

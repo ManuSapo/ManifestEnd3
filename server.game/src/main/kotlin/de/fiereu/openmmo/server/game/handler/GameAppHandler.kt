@@ -1,9 +1,10 @@
-﻿package de.fiereu.openmmo.server.game.handler
+package de.fiereu.openmmo.server.game.handler
 
 import de.fiereu.network.PacketEvent
 import de.fiereu.network.Side
 import de.fiereu.network.coroutines.CoroutineProtocolHandler
 import de.fiereu.openmmo.common.enums.ChatType
+import de.fiereu.openmmo.common.enums.PokemonContainer
 import de.fiereu.openmmo.common.enums.Language
 import de.fiereu.openmmo.net.game.GameProtocol
 import de.fiereu.openmmo.net.game.packets.AddFriendPacket
@@ -26,6 +27,9 @@ import de.fiereu.openmmo.net.game.packets.NullPacket
 import de.fiereu.openmmo.net.game.packets.RemoveFriendPacket
 import de.fiereu.openmmo.net.game.packets.RequestCharactersPacket
 import de.fiereu.openmmo.net.game.packets.RequestPlayerPacket
+import de.fiereu.openmmo.net.game.packets.PokemonContainerPacket
+import de.fiereu.openmmo.net.game.packets.PartyMemberSelectPacket
+import de.fiereu.openmmo.net.game.packets.SwapInventorySlotsPacket
 import de.fiereu.openmmo.net.game.packets.RequestSocialProfilePacket
 import de.fiereu.openmmo.net.game.packets.SelectCharacterPacket
 import de.fiereu.openmmo.net.game.packets.ShopSellRequestPacket
@@ -69,6 +73,7 @@ import de.fiereu.openmmo.server.game.services.DialogService
 import de.fiereu.openmmo.server.game.services.GuildService
 import de.fiereu.openmmo.server.game.services.InteractionService
 import de.fiereu.openmmo.server.game.services.LoginService
+import de.fiereu.openmmo.server.game.services.MapLoadService
 import de.fiereu.openmmo.server.game.services.MovementService
 import de.fiereu.openmmo.server.game.services.MultiplayerService
 import de.fiereu.openmmo.server.game.services.PresenceService
@@ -103,6 +108,7 @@ constructor(
     private val scriptRunner: ScriptRunner,
     private val sessionRegistry: SessionRegistry,
     private val characterStore: CharacterStore,
+    private val mapLoadService: MapLoadService,
     scope: CoroutineScope,
 ) : CoroutineProtocolHandler<GameProtocol>(GameProtocol, Side.SERVER, scope) {
 
@@ -121,6 +127,49 @@ constructor(
     onSuspend<TileInteractPacket> { event -> interactionService.onTileInteract(event) }
     onSuspend<DialogActionResponsePacket> { event -> dialogService.onInteractive(event) }
     onSuspend<DialogChoicePacket> { event -> dialogService.onDialogChoice(event) }
+    on<SwapInventorySlotsPacket> { event ->
+      val state = event.session.attributes[PLAYER_STATE] ?: return@on
+      val charId = state.characterId ?: return@on
+      for (swap in event.packet.swaps) {
+        if (swap.sourceListType.toInt() == 1 && swap.destinationListType.toInt() == 1) {
+          characterStore.swapPartySlots(charId, swap.sourceSlot.toInt(), swap.destinationSlot.toInt())
+        }
+      }
+      characterStore.flushCharacterAsync(charId)
+      val stored = characterStore.getCharacter(charId) ?: return@on
+      event.session.send(
+        PokemonContainerPacket(
+          container = PokemonContainer.PARTY,
+          hasChange = true,
+          delete = false,
+          pokemon = stored.pokemon.toList(),
+        ),
+      )
+      val loadEntity = mapLoadService.createLoadEntity(
+        info = stored.info,
+        facing = state.facingDirection,
+        z = state.elevation,
+        party = stored.pokemon,
+        skins = stored.skins,
+      )
+      event.session.send(loadEntity)
+    }
+    on<PartyMemberSelectPacket> { event ->
+      val state = event.session.attributes[PLAYER_STATE] ?: return@on
+      val charId = state.characterId ?: return@on
+      characterStore.setFollower(charId, event.packet.selectionType, event.packet.entityId)
+      characterStore.flushCharacterAsync(charId)
+      val stored = characterStore.getCharacter(charId) ?: return@on
+      val loadEntity = mapLoadService.createLoadEntity(
+        info = stored.info,
+        facing = state.facingDirection,
+        z = state.elevation,
+        party = stored.pokemon,
+        skins = stored.skins,
+      )
+      println("DEBUG FOLLOWER selectionType=${event.packet.selectionType} entityId=${event.packet.entityId} hasFollower=${loadEntity.hasFollower} followerDexId=${loadEntity.followerDexId}")
+      event.session.send(loadEntity)
+    }
     onSuspend<DialogOptionPacket> { event -> dialogService.onDialogOption(event) }
     onSuspend<ExchangeItemRequestPacket> { event -> shopService.onBuy(event) }
     onSuspend<ShopSellRequestPacket> { event -> shopService.onSell(event) }
@@ -229,4 +278,7 @@ constructor(
     )
   }
 }
+
+
+
 

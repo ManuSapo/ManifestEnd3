@@ -31,6 +31,12 @@ constructor(
       party: List<Pokemon> = emptyList(),
       skins: Map<SkinSlot, Skin> = emptyMap(),
   ): LoadEntityPacket {
+    val followerSlot = info.followerSlot
+    val followerDexId = when {
+      info.followerPokemonId != null -> party.firstOrNull { it.id == info.followerPokemonId }?.dexId ?: 0
+      followerSlot != null -> party.getOrNull(followerSlot.toInt())?.dexId ?: 0
+      else -> party.firstOrNull()?.dexId ?: 0
+    }
     return LoadEntityPacket(
         entityId = info.id,
         skin = SkinSet(info.skinRegionSelectionIndex, skins),
@@ -43,8 +49,8 @@ constructor(
         z = z,
         facing = facing,
         status = EntityStatus.NONE,
-        hasFollower = party.isNotEmpty(),
-        followerDexId = (party.firstOrNull()?.dexId ?: 0).toShort(),
+        hasFollower = followerDexId != 0,
+        followerDexId = followerDexId.toShort(),
     )
   }
 

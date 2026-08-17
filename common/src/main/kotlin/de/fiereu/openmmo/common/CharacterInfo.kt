@@ -33,4 +33,6 @@ data class CharacterInfo(
     val lureItemId: Short,
     /** Runtime warp destination for MAP_DYNAMIC warps (setdynamicwarp), or null if none is set. */
     val dynamicWarp: DynamicWarp? = null,
+    val followerPokemonId: Long? = null,
+    val followerSlot: Short? = null,
 )

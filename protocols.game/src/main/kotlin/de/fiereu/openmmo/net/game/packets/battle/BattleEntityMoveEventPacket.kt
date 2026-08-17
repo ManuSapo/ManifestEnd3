@@ -23,6 +23,9 @@ sealed interface BattleEventBody {
 
   /** Event 0x40, BattleMoveFailed. [moveId] names the move in the "it failed" message. */
   data class MoveFailed(val moveId: Short) : BattleEventBody
+
+  /** Event 2 (guessed), BattlePokemonStatus: the status condition applied to the target. */
+  data class Status(val statusId: Byte) : BattleEventBody
 }
 
 private val HpUpdateBodyCodec: Codec<BattleEventBody> =
@@ -72,6 +75,14 @@ private val MoveFailedBodyCodec: Codec<BattleEventBody> =
       }
     }
 
+private val StatusBodyCodec: Codec<BattleEventBody> =
+    object : PacketCodec<BattleEventBody>() {
+      override fun CodecScope<BattleEventBody>.body(): BattleEventBody {
+        val statusId = field(S8) { (it as BattleEventBody.Status).statusId }
+        return BattleEventBody.Status(statusId)
+      }
+    }
+
 /**
  * A nested battle action event's type, the client's event id. Each type holds the codec for its
  * body. The enum grows as we capture more of the client's event types.
@@ -81,7 +92,8 @@ enum class BattleEventType(val id: Int, val codec: Codec<BattleEventBody>) {
   STAT_CHANGE(id = 1, codec = StatChangeBodyCodec),
   EFFECTIVENESS_MESSAGE(id = 4, codec = EffectivenessMessageBodyCodec),
   POKEMON_FAINTED(id = 5, codec = FaintBodyCodec),
-  MOVE_FAILED(id = 0x40, codec = MoveFailedBodyCodec);
+  MOVE_FAILED(id = 0x40, codec = MoveFailedBodyCodec),
+  STATUS_APPLIED(id = 2, codec = StatusBodyCodec);
 
   companion object {
     fun ofId(id: Int): BattleEventType = entries.first { it.id == id }
@@ -93,6 +105,7 @@ enum class BattleEventType(val id: Int, val codec: Codec<BattleEventBody>) {
           is BattleEventBody.EffectivenessMessage -> EFFECTIVENESS_MESSAGE
           is BattleEventBody.Faint -> POKEMON_FAINTED
           is BattleEventBody.MoveFailed -> MOVE_FAILED
+          is BattleEventBody.Status -> STATUS_APPLIED
         }
   }
 }
