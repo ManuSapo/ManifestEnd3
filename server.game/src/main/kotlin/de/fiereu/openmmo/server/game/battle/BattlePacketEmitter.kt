@@ -157,6 +157,7 @@ class BattlePacketEmitter @Inject constructor(private val interestManager: Inter
                   i++
                   listOf(failTarget(battle, event.attackerId, next))
                 }
+
                 else -> emptyList()
               }
           broadcast(
@@ -166,6 +167,8 @@ class BattlePacketEmitter @Inject constructor(private val interestManager: Inter
         is BattleEvent.DamageDealt -> Unit
         is BattleEvent.StageChanged -> Unit
         is BattleEvent.Fainted -> Unit
+        is BattleEvent.StatusApplied -> Unit
+        is BattleEvent.StatusApplied -> Unit
         is BattleEvent.MoveWithoutTarget -> Unit
       }
       i++

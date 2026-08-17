@@ -1,4 +1,4 @@
-﻿package de.fiereu.openmmo.server.game.storage
+package de.fiereu.openmmo.server.game.storage
 
 import de.fiereu.openmmo.common.CharacterInfo
 import de.fiereu.openmmo.common.DynamicWarp
@@ -190,7 +190,29 @@ constructor(
     return applied
   }
 
-  fun updateCharacter(info: CharacterInfo) {
+  fun setFollower(characterId: Long, selectionType: Byte, entityId: Long) {
+    mutate(characterId) { stored ->
+      when (selectionType.toInt()) {
+        1 -> stored.copy(info = stored.info.copy(followerPokemonId = entityId, followerSlot = null))
+        0 -> stored.copy(info = stored.info.copy(followerPokemonId = null, followerSlot = entityId.toShort()))
+        else -> null
+      }
+    }
+  }
+
+  fun swapPartySlots(characterId: Long, from: Int, to: Int) {
+    mutate(characterId) { stored ->
+      if (from !in stored.pokemon.indices || to !in stored.pokemon.indices) return@mutate null
+      val party = stored.pokemon.toMutableList()
+      val tmp = party[from]
+      party[from] = party[to]
+      party[to] = tmp
+      // Atualiza os containerSlot para refletir a nova posição na lista.
+      val reordered = party.mapIndexed { index, mon -> mon.copy(containerSlot = index.toShort()) }
+      stored.copy(pokemon = reordered.toMutableList())
+    }
+  }
+fun updateCharacter(info: CharacterInfo) {
     mutate(info.id) { it.copy(info = info) }
   }
 
@@ -467,4 +489,9 @@ constructor(
     charactersByUser.remove(stored.info.userId)
   }
 }
+
+
+
+
+
 

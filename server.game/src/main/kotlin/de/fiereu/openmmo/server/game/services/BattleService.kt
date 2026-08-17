@@ -307,12 +307,29 @@ constructor(
     battle.seenActive.add(firstAlive)
     interestManager.join(session, battle.key)
     emitter.sendStart(battle, stored.info.name)
+
+    // TESTE TEMPORÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂRIO: forÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§a status no monstro ativo
+    val testStatusId: Byte = 1 // 1 = SLEEP, 2 = CONFUSION, 3 = POISON, 4 = BURN, 5 = PARALYSIS, 6 = FREEZE
+    val active = battle.activeMon()
+    println("DEBUG STATUS TEST enviando statusId=$testStatusId para entityId=${active.entityId}")
+    battle.session.send(
+      de.fiereu.openmmo.net.game.packets.battle.BattlePokemonStatusPacket(
+        entityId = active.entityId,
+        statusId = testStatusId,
+        statusEffect = null,
+      ),
+    )
     return battle
   }
 
   private suspend fun resolveTurn(battle: BattleInstance, moveId: Short) {
     val events = engine.resolveTurn(battle, moveId)
     emitter.sendEvents(battle, events)
+    for (event in events) {
+      if (event is de.fiereu.openmmo.server.game.battle.BattleEvent.StatusApplied) {
+        println("DEBUG BATTLE_SERVICE StatusApplied (sub-evento) targetId=${event.targetId} statusId=${event.statusId}")
+      }
+    }
     afterTurn(battle)
   }
 

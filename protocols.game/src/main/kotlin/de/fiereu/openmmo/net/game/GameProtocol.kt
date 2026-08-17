@@ -1,4 +1,4 @@
-package de.fiereu.openmmo.net.game
+﻿package de.fiereu.openmmo.net.game
 
 import de.fiereu.network.Protocol
 import de.fiereu.network.bidi
@@ -38,7 +38,8 @@ object GameProtocol : Protocol() {
     c2s<ChatMessageSendPacket>(0x08u, ChatMessageSendPacketCodec)
     s2c<EntityLeavePacket>(0x08u, EntityLeavePacketCodec)
 
-    bidi<ChatMessagePacket>(0x09u, ChatMessagePacketCodec)
+    s2c<ChatMessagePacket>(0x09u, ChatMessagePacketCodec)
+    c2s<SwapInventorySlotsPacket>(0x09u, SwapInventorySlotsPacketCodec)
 
     c2s<MoveLearnReplyPacket>(0x0Au, MoveLearnReplyPacketCodec)
     s2c<WorldFlagTableResetPacket>(0x0Au, WorldFlagTableResetPacketCodec)
@@ -603,3 +604,4 @@ object GameProtocol : Protocol() {
     s2c<WorldSessionStatePacket>(0xFFu, WorldSessionStatePacketCodec)
   }
 }
+

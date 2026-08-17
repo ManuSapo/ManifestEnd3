@@ -43,6 +43,8 @@ sealed interface BattleEvent {
   ) : BattleEvent
 
   data class Fainted(val targetId: Long) : BattleEvent
+
+  data class StatusApplied(val targetId: Long, val statusId: Byte) : BattleEvent
 }
 
 private data class TurnAction(
@@ -140,10 +142,13 @@ constructor(
       return
     }
 
+    println("DEBUG TURN moveId=${move.id} name=${move.name} effect=${move.effect} power=${move.power} accuracy=${move.accuracy}")
     val stage = stageEffect(move.effect)
+    val status = statusEffect(move.effect)
     when {
       move.power > 0 -> damage(battle, action, move, events)
       stage != null -> applyStage(action, stage, events)
+      status != null -> events += BattleEvent.StatusApplied(action.defender.entityId, status)
       else -> events += BattleEvent.MoveFailed(attacker.entityId, moveId)
     }
   }
@@ -223,6 +228,14 @@ constructor(
             value,
             effect.delta,
             applied == 0)
+  }
+
+  private fun statusEffect(effect: MoveEffect): Byte? = when (effect) {
+    MoveEffect.PARALYZE -> 64
+    MoveEffect.SLEEP -> 7
+    MoveEffect.CONFUSE -> 7
+    MoveEffect.POISON -> 8
+    else -> null
   }
 
   private fun stageEffect(effect: MoveEffect): StageEffect? =

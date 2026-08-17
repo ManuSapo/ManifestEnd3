@@ -1,4 +1,4 @@
-﻿package de.fiereu.network
+package de.fiereu.network
 
 import de.fiereu.bytecodec.Codec
 import de.fiereu.network.internal.OutgoingPacket
@@ -58,6 +58,9 @@ val opcode = (msg.readByte().toInt() and 0xFF).toUByte()
         return
       }
       val packet = decode(registration.codec, msg)
+      if (opcode == 0x11.toUByte()) {
+        println("[DEBUG PACKET 0x11] opcode=0x${opcode.toString(16)}")
+      }
       val trailing = msg.readableBytes()
       if (trailing > 0) throw TrailingBytesException(opcode, trailing)
       try {
@@ -91,6 +94,9 @@ val opcode = (msg.readByte().toInt() and 0xFF).toUByte()
     var success = false
     try {
       buffer.writeByte(registration.opcode.toInt())
+      if (registration.opcode.toInt() == 0x05 || registration.opcode.toInt() == 0x2B) {
+        println("DEBUG SEND opcode=0x${registration.opcode.toString(16)} class=${value::class.simpleName}")
+      }
       encode(registration.codec, value, buffer)
       success = true
     } finally {
@@ -130,5 +136,6 @@ val opcode = (msg.readByte().toInt() and 0xFF).toUByte()
     (codec as Codec<Any>).write(NettyWriteBuffer(buf), value)
   }
 }
+
 
 

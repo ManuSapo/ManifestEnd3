@@ -11,6 +11,7 @@ object PartyMemberSelectPacketCodec : PacketCodec<PartyMemberSelectPacket>() {
   override fun CodecScope<PartyMemberSelectPacket>.body(): PartyMemberSelectPacket {
     val selectionType = field(S8) { it.selectionType }
     val entityId = field(S64LE) { it.entityId }
+    println("DEBUG PartyMemberSelect selectionType=$selectionType entityId=$entityId")
     return PartyMemberSelectPacket(selectionType, entityId)
   }
 }
