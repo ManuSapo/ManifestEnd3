@@ -1,4 +1,4 @@
-﻿package de.fiereu.openmmo.server.game.services
+package de.fiereu.openmmo.server.game.services
 
 import de.fiereu.network.PacketEvent
 import de.fiereu.network.SessionContext
@@ -218,19 +218,19 @@ class DialogService @Inject constructor(
     val packet = event.packet
     val itemId = packet.unk1 and 0xFFFF
     val slotRaw = (packet.unk1 ushr 16) and 0xFFFF
-    val slot = if (slotRaw >= 0xC000) slotRaw - 0xC000 else slotRaw
     val quantity = (packet.unk3 ushr 16) and 0xFFFF
     if (quantity <= 0) {
       log.warn { "Invalid quantity=$quantity for itemId=$itemId" }
       return
     }
-    if (slot !in 0..5) {
-      log.warn { "Invalid slot=$slot for itemId=$itemId" }
-      return
-    }
     val state = session.attributes[PLAYER_STATE] ?: return
     val charId = state.characterId ?: return
-        val storedBeforeUse = characterStore.getCharacter(charId) ?: return
+    val storedBeforeUse = characterStore.getCharacter(charId) ?: return
+    val slot = storedBeforeUse.pokemon.indexOfFirst { (it.id and 0xFFFF).toInt() == slotRaw }
+    if (slot == -1) {
+      log.warn { "No pokemon with id suffix $slotRaw for itemId=$itemId" }
+      return
+    }
     val availableBefore = storedBeforeUse.items[itemId] ?: 0
     if (quantity > availableBefore) {
       log.warn { "char=$charId attempted to use $quantity of $itemId but has $availableBefore" }
